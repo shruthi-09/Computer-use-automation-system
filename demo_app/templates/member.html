@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Member Details</title>
+</head>
+
+<body>
+
+<h1>Community Credit Union</h1>
+
+<h2>Member Details</h2>
+
+<table border="1" cellpadding="8">
+    <tr>
+        <td>Member ID</td>
+        <td>{{ member_id }}</td>
+    </tr>
+
+    <tr>
+        <td>Name</td>
+        <td>{{ member.name }}</td>
+    </tr>
+
+    <tr>
+        <td>Checking Balance</td>
+        <td>{{ member.checking_balance }}</td>
+    </tr>
+
+    <tr>
+        <td>Savings Balance</td>
+        <td>{{ member.savings_balance }}</td>
+    </tr>
+</table>
+
+<br>
+
+<a href="/">Return to Search</a>
+
+</body>
+</html>
