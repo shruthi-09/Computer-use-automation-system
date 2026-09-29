@@ -1,0 +1,93 @@
+{
+  "schema_version": "1.0",
+  "capability_name": "lookup_savings_balance",
+  "description": "Look up a credit union member and return their current savings balance.",
+  "target_application": "community_credit_union",
+  "entry_point": "http://127.0.0.1:8000",
+  "inputs": {
+    "member_id": {
+      "type": "string",
+      "required": true,
+      "sensitive": true,
+      "description": "Credit union member identifier"
+    }
+  },
+  "outputs": {
+    "savings_balance": {
+      "type": "string",
+      "description": "Current savings account balance"
+    }
+  },
+  "steps": [
+    {
+      "id": "step_1",
+      "action": "type",
+      "target": {
+        "strategy": "label",
+        "role": null,
+        "name": null,
+        "label": "Member ID",
+        "text": null,
+        "selector": null,
+        "placeholder": null,
+        "fallbacks": []
+      },
+      "value": "{{member_id}}",
+      "output": null,
+      "timeout_ms": 5000,
+      "description": "Enter the supplied member ID."
+    },
+    {
+      "id": "step_2",
+      "action": "click",
+      "target": {
+        "strategy": "role",
+        "role": "button",
+        "name": "Search",
+        "label": null,
+        "text": null,
+        "selector": null,
+        "placeholder": null,
+        "fallbacks": []
+      },
+      "value": null,
+      "output": null,
+      "timeout_ms": 5000,
+      "description": "Submit the member search."
+    },
+    {
+      "id": "step_3",
+      "action": "extract",
+      "target": {
+        "strategy": "text",
+        "role": null,
+        "name": null,
+        "label": null,
+        "text": "Savings Balance",
+        "selector": null,
+        "placeholder": null,
+        "fallbacks": []
+      },
+      "value": null,
+      "output": "savings_balance",
+      "timeout_ms": 5000,
+      "description": "Read the member savings balance."
+    }
+  ],
+  "checkpoint": {
+    "type": "visible_text",
+    "value": "Member Details",
+    "target": null
+  },
+  "business_outcomes": [
+    {
+      "code": "MEMBER_NOT_FOUND",
+      "description": "No member exists for the supplied ID.",
+      "condition": {
+        "type": "visible_text",
+        "value": "Member Not Found",
+        "target": null
+      }
+    }
+  ]
+}
