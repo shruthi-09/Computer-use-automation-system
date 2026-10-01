@@ -89,5 +89,16 @@
         "target": null
       }
     }
+  ],
+  "hard_failures": [
+    {
+      "code": "PERMISSION_DENIED",
+      "description": "The operator does not have permission to view the requested member.",
+      "condition": {
+        "type": "visible_text",
+        "value": "Permission Denied",
+        "target": null
+      }
+    }
   ]
 }

@@ -77,6 +77,11 @@ class BusinessOutcome(BaseModel):
     description: str
     condition: ConditionSpec
 
+class HardFailure(BaseModel):
+    code: str
+    description: str
+    condition: ConditionSpec
+
 
 class CapabilityArtifact(BaseModel):
     schema_version: str = "1.0"
@@ -100,3 +105,7 @@ class CapabilityArtifact(BaseModel):
     business_outcomes: list[BusinessOutcome] = Field(
         default_factory=list
     )
+
+    hard_failures: list[HardFailure] = Field(
+    default_factory=list
+)

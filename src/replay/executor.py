@@ -33,6 +33,17 @@ class ReplayExecutor:
 
             for step in artifact.steps:
 
+                hard_failure_result = (
+                    await self._check_hard_failures(
+                        artifact,
+                        completed_steps,
+                        outputs,
+                    )
+                )
+
+                if hard_failure_result:
+                    return hard_failure_result
+
                 business_result = (
                     await self._check_business_outcomes(
                         artifact,
@@ -51,6 +62,17 @@ class ReplayExecutor:
                 )
 
                 completed_steps.append(step.id)
+
+            hard_failure_result = (
+                await self._check_hard_failures(
+                    artifact,
+                    completed_steps,
+                    outputs,
+                )
+            )
+
+            if hard_failure_result:
+                return hard_failure_result
 
             business_result = (
                 await self._check_business_outcomes(
@@ -248,8 +270,7 @@ class ReplayExecutor:
         condition = artifact.checkpoint
 
         if (
-            condition.type
-            == "visible_text"
+            condition.type == "visible_text"
             and condition.value
         ):
             locator = (
@@ -275,8 +296,7 @@ class ReplayExecutor:
             condition = outcome.condition
 
             if (
-                condition.type
-                == "visible_text"
+                condition.type == "visible_text"
                 and condition.value
             ):
                 locator = (
@@ -303,6 +323,70 @@ class ReplayExecutor:
                             completed_steps
                         ),
                         llm_calls=0,
+                    )
+
+        return None
+
+    async def _check_hard_failures(
+        self,
+        artifact: CapabilityArtifact,
+        completed_steps: list[str],
+        outputs: dict[str, Any],
+    ) -> ReplayResult | None:
+
+        for failure in artifact.hard_failures:
+
+            condition = failure.condition
+
+            if (
+                condition.type == "visible_text"
+                and condition.value
+            ):
+                locator = (
+                    self.surface.page.get_by_text(
+                        condition.value,
+                        exact=False,
+                    )
+                )
+
+                if await locator.count() > 0:
+
+                    screenshot_path = (
+                        "evidence/replay/"
+                        f"{failure.code.lower()}.png"
+                    )
+
+                    await self.surface.screenshot(
+                        screenshot_path
+                    )
+
+                    return ReplayResult(
+                        status=ReplayStatus.FAILURE,
+                        capability_name=(
+                            artifact.capability_name
+                        ),
+                        outputs=outputs,
+                        completed_steps=(
+                            completed_steps
+                        ),
+                        llm_calls=0,
+                        error=ReplayError(
+                            code=failure.code,
+                            message=(
+                                failure.description
+                            ),
+                            step_id=(
+                                completed_steps[-1]
+                                if completed_steps
+                                else None
+                            ),
+                            observed=(
+                                condition.value
+                            ),
+                            screenshot=(
+                                screenshot_path
+                            ),
+                        ),
                     )
 
         return None

@@ -2,6 +2,7 @@ from src.artifacts.models import (
     BusinessOutcome,
     CapabilityArtifact,
     ConditionSpec,
+    HardFailure,
     InputParameter,
     OutputParameter,
     StepSpec,
@@ -13,12 +14,16 @@ from src.artifacts.store import save_artifact, load_artifact
 
 artifact = CapabilityArtifact(
     capability_name="lookup_savings_balance",
+
     description=(
         "Look up a credit union member and return "
         "their current savings balance."
     ),
+
     target_application="community_credit_union",
+
     entry_point="http://127.0.0.1:8000",
+
     inputs={
         "member_id": InputParameter(
             type="string",
@@ -27,12 +32,14 @@ artifact = CapabilityArtifact(
             description="Credit union member identifier",
         )
     },
+
     outputs={
         "savings_balance": OutputParameter(
             type="string",
             description="Current savings account balance",
         )
     },
+
     steps=[
         StepSpec(
             id="step_1",
@@ -44,6 +51,7 @@ artifact = CapabilityArtifact(
             value="{{member_id}}",
             description="Enter the supplied member ID.",
         ),
+
         StepSpec(
             id="step_2",
             action="click",
@@ -54,6 +62,7 @@ artifact = CapabilityArtifact(
             ),
             description="Submit the member search.",
         ),
+
         StepSpec(
             id="step_3",
             action="extract",
@@ -65,17 +74,35 @@ artifact = CapabilityArtifact(
             description="Read the member savings balance.",
         ),
     ],
+
     checkpoint=ConditionSpec(
         type="visible_text",
         value="Member Details",
     ),
+
     business_outcomes=[
         BusinessOutcome(
             code="MEMBER_NOT_FOUND",
-            description="No member exists for the supplied ID.",
+            description=(
+                "No member exists for the supplied ID."
+            ),
             condition=ConditionSpec(
                 type="visible_text",
                 value="Member Not Found",
+            ),
+        )
+    ],
+
+    hard_failures=[
+        HardFailure(
+            code="PERMISSION_DENIED",
+            description=(
+                "The operator does not have permission "
+                "to view the requested member."
+            ),
+            condition=ConditionSpec(
+                type="visible_text",
+                value="Permission Denied",
             ),
         )
     ],
@@ -90,14 +117,21 @@ print(
     )
 )
 
-output_path = "artifacts/examples/lookup_savings_balance-v1.json"
+
+output_path = (
+    "artifacts/examples/"
+    "lookup_savings_balance-v1.json"
+)
 
 save_artifact(
     artifact,
     output_path
 )
 
-print(f"\nArtifact saved to: {output_path}")
+print(
+    f"\nArtifact saved to: {output_path}"
+)
+
 
 loaded_artifact = load_artifact(
     output_path
@@ -113,4 +147,9 @@ print(
 print(
     "Schema version:",
     loaded_artifact.schema_version
+)
+
+print(
+    "Hard failures:",
+    loaded_artifact.hard_failures
 )
