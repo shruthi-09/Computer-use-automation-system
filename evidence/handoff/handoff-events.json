@@ -1,0 +1,21 @@
+[
+  {
+    "timestamp": "2026-10-01T00:30:55.801368+00:00",
+    "event": "handoff_requested",
+    "control_state": "paused",
+    "reason": "Demo manual intervention: enter member ID 12345 and click Search manually.",
+    "step_id": "manual_demo_step",
+    "screenshot": "evidence/handoff/handoff-request.png"
+  },
+  {
+    "timestamp": "2026-10-01T00:31:49.555750+00:00",
+    "event": "handoff_completed",
+    "control_state": "resuming",
+    "screenshot": "evidence/handoff/handoff-resume.png"
+  },
+  {
+    "timestamp": "2026-10-01T00:31:49.588294+00:00",
+    "event": "run_completed",
+    "control_state": "completed"
+  }
+]
