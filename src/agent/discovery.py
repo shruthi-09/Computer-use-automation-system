@@ -48,16 +48,22 @@ class DiscoveryRunner:
             target=target,
         )
 
-        self.safety.validate_url(target)
+        self.safety.validate_url(
+            target
+        )
 
-        await self.surface.navigate(target)
+        await self.surface.navigate(
+            target
+        )
 
         for step_number in range(
             1,
             self.max_steps + 1,
         ):
 
-            observation = await self.surface.observe()
+            observation = (
+                await self.surface.observe()
+            )
 
             safe_observation = redact_data(
                 observation
@@ -66,8 +72,12 @@ class DiscoveryRunner:
             self.logger.log(
                 "observation_captured",
                 step=step_number,
-                title=observation.get("title"),
-                url=observation.get("url"),
+                title=observation.get(
+                    "title"
+                ),
+                url=observation.get(
+                    "url"
+                ),
                 control_count=len(
                     observation.get(
                         "controls",
@@ -88,7 +98,8 @@ class DiscoveryRunner:
 
             if decision.action.target:
                 target_dict = (
-                    decision.action.target.model_dump(
+                    decision.action.target
+                    .model_dump(
                         exclude_none=True
                     )
                 )
@@ -96,9 +107,13 @@ class DiscoveryRunner:
             self.logger.log(
                 "llm_decision",
                 step=step_number,
-                action=decision.action.action,
+                action=(
+                    decision.action.action
+                ),
                 target=target_dict,
-                reason=decision.action.reason,
+                reason=(
+                    decision.action.reason
+                ),
                 confidence=(
                     decision.action.confidence
                 ),
@@ -120,14 +135,21 @@ class DiscoveryRunner:
                 decision.action.reason
             )
 
+            # If the model explicitly says the goal
+            # is finished before another action,
+            # stop successfully.
             if (
                 decision.goal_satisfied
-                or decision.action.action == "finish"
+                or decision.action.action
+                == "finish"
             ):
 
                 self.logger.log(
                     "run_completed",
                     status="success",
+                    reason=(
+                        "model_declared_complete"
+                    ),
                     llm_calls=self.llm_calls,
                     output_names=list(
                         self.outputs.keys()
@@ -142,22 +164,34 @@ class DiscoveryRunner:
                     "llm_calls": self.llm_calls,
                 }
 
-            if decision.action.action == "escalate":
+            # Escalation requested by the model.
+            if (
+                decision.action.action
+                == "escalate"
+            ):
 
                 self.logger.log(
                     "escalation_requested",
                     step=step_number,
-                    reason=decision.action.reason,
+                    reason=(
+                        decision.action.reason
+                    ),
                 )
 
                 return {
-                    "status": "escalation_required",
+                    "status": (
+                        "escalation_required"
+                    ),
                     "goal": goal,
-                    "reason": decision.action.reason,
+                    "reason": (
+                        decision.action.reason
+                    ),
                     "history": self.history,
                     "llm_calls": self.llm_calls,
                 }
 
+            # Deterministic safety policy decides
+            # whether the proposed action is allowed.
             try:
                 self.safety.validate_action(
                     decision.action.action
@@ -179,6 +213,7 @@ class DiscoveryRunner:
                     "llm_calls": self.llm_calls,
                 }
 
+            # Execute exactly one approved action.
             await self._execute_action(
                 decision.action
             )
@@ -191,8 +226,10 @@ class DiscoveryRunner:
                 "target": target_dict,
                 "value": (
                     "[REDACTED]"
-                    if decision.action.action
-                    == "type"
+                    if (
+                        decision.action.action
+                        == "type"
+                    )
                     else decision.action.value
                 ),
                 "reason": (
@@ -207,15 +244,51 @@ class DiscoveryRunner:
             self.logger.log(
                 "action_executed",
                 step=step_number,
-                action=decision.action.action,
+                action=(
+                    decision.action.action
+                ),
                 target=target_dict,
                 value=(
                     "[REDACTED]"
-                    if decision.action.action
-                    == "type"
+                    if (
+                        decision.action.action
+                        == "type"
+                    )
                     else None
                 ),
             )
+
+            # Deterministic stopping condition.
+            #
+            # For this capability, once the requested
+            # value has been successfully extracted,
+            # discovery is complete. We do not need
+            # another LLM call just to say "finish".
+            if (
+                decision.action.action
+                == "extract"
+                and self.outputs
+            ):
+
+                self.logger.log(
+                    "run_completed",
+                    status="success",
+                    reason=(
+                        "required_output_extracted"
+                    ),
+                    llm_calls=self.llm_calls,
+                    output_names=list(
+                        self.outputs.keys()
+                    ),
+                )
+
+                return {
+                    "status": "success",
+                    "goal": goal,
+                    "outputs": self.outputs,
+                    "history": self.history,
+                    "llm_calls": self.llm_calls,
+                }
 
         self.logger.log(
             "run_completed",
@@ -240,12 +313,14 @@ class DiscoveryRunner:
 
             if not action.target:
                 raise ValueError(
-                    "Type action requires a target."
+                    "Type action requires "
+                    "a target."
                 )
 
             if action.value is None:
                 raise ValueError(
-                    "Type action requires a value."
+                    "Type action requires "
+                    "a value."
                 )
 
             target_dict = (
@@ -263,7 +338,8 @@ class DiscoveryRunner:
 
             if not action.target:
                 raise ValueError(
-                    "Click action requires a target."
+                    "Click action requires "
+                    "a target."
                 )
 
             target_dict = (
@@ -276,25 +352,33 @@ class DiscoveryRunner:
                 target_dict
             )
 
-            await self.surface.page.wait_for_load_state(
-                "domcontentloaded"
+            await (
+                self.surface.page
+                .wait_for_load_state(
+                    "domcontentloaded"
+                )
             )
 
         elif action.action == "wait":
 
-            await self.surface.page.wait_for_timeout(
-                1000
+            await (
+                self.surface.page
+                .wait_for_timeout(
+                    1000
+                )
             )
 
         elif action.action == "extract":
 
-            value = await self._extract_value(
-                action.target
+            value = (
+                await self._extract_value(
+                    action.target
+                )
             )
 
             output_name = (
                 action.output_name
-                or "extracted_value"
+                or "savings_balance"
             )
 
             self.outputs[
@@ -313,8 +397,8 @@ class DiscoveryRunner:
 
         else:
             raise ValueError(
-                f"Unsupported discovery action: "
-                f"{action.action}"
+                f"Unsupported discovery "
+                f"action: {action.action}"
             )
 
     async def _extract_value(
@@ -324,15 +408,18 @@ class DiscoveryRunner:
 
         if not target:
             raise ValueError(
-                "Extract action requires a target."
+                "Extract action requires "
+                "a target."
             )
 
         if hasattr(
             target,
-            "model_dump"
+            "model_dump",
         ):
-            target = target.model_dump(
-                exclude_none=True
+            target = (
+                target.model_dump(
+                    exclude_none=True
+                )
             )
 
         strategy = target.get(
@@ -352,9 +439,11 @@ class DiscoveryRunner:
                     "text or name."
                 )
 
-            row = self.surface.page.locator(
-                "tr",
-                has_text=label,
+            row = (
+                self.surface.page.locator(
+                    "tr",
+                    has_text=label,
+                )
             )
 
             if await row.count() == 0:
@@ -369,15 +458,17 @@ class DiscoveryRunner:
 
             if await cells.count() < 2:
                 raise ValueError(
-                    "Expected table row with "
-                    "label and value."
+                    "Expected table row "
+                    "with label and value."
                 )
 
-            return (
+            value = (
                 await cells.nth(
                     1
                 ).inner_text()
             ).strip()
+
+            return value
 
         raise ValueError(
             f"Unsupported extraction "

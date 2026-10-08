@@ -42,10 +42,10 @@
       "action": "click",
       "target": {
         "strategy": "role",
-        "role": null,
-        "name": null,
+        "role": "button",
+        "name": "Search",
         "label": null,
-        "text": "Search",
+        "text": null,
         "selector": null,
         "placeholder": null,
         "fallbacks": []

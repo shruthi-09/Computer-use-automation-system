@@ -1,4 +1,6 @@
+import json
 import os
+import time
 
 from dotenv import load_dotenv
 from openai import OpenAI
@@ -32,7 +34,7 @@ class LLMPlanner:
             api_key=api_key,
             base_url="https://openrouter.ai/api/v1",
             timeout=60.0,
-            max_retries=2,
+            max_retries=0,
         )
 
         self.model = (
@@ -60,102 +62,212 @@ class LLMPlanner:
             DISCOVERY_SYSTEM_PROMPT
             + """
 
-IMPORTANT RULES:
+IMPORTANT OUTPUT RULES:
 
-Choose exactly one next UI action.
+Return ONLY one valid JSON object.
 
-Only use these target strategies:
+Do not use markdown.
+Do not use code fences.
+Do not include text before or after the JSON.
 
-- role
-- label
-- text
-- css
-- placeholder
+Use exactly these action values:
+
+click
+type
+extract
+wait
+finish
+escalate
+
+Use only these target strategies:
+
+role
+label
+text
+css
+placeholder
 
 Never use "name" as a strategy.
 
 Examples:
 
 Member ID input:
+
 {
-  "strategy": "label",
-  "label": "Member ID"
+  "goal_satisfied": false,
+  "action": {
+    "action": "type",
+    "target": {
+      "strategy": "label",
+      "label": "Member ID"
+    },
+    "value": "12345",
+    "output_name": null,
+    "reason": "Enter the requested member ID.",
+    "confidence": 0.95
+  },
+  "summary": null
 }
 
 Search button:
+
 {
-  "strategy": "role",
-  "role": "button",
-  "name": "Search"
+  "goal_satisfied": false,
+  "action": {
+    "action": "click",
+    "target": {
+      "strategy": "role",
+      "role": "button",
+      "name": "Search"
+    },
+    "value": null,
+    "output_name": null,
+    "reason": "Submit the member search.",
+    "confidence": 0.95
+  },
+  "summary": null
 }
 
-Savings balance extraction:
+Savings Balance extraction:
+
 {
-  "strategy": "text",
-  "text": "Savings Balance"
+  "goal_satisfied": false,
+  "action": {
+    "action": "extract",
+    "target": {
+      "strategy": "text",
+      "text": "Savings Balance"
+    },
+    "value": null,
+    "output_name": "savings_balance",
+    "reason": "Read the savings balance.",
+    "confidence": 0.95
+  },
+  "summary": null
 }
 
-If the requested value has not yet been extracted,
-do not finish.
-
-For this goal, extraction must happen before finish.
+Do not finish until the requested value has been extracted.
 """
         )
 
-        schema = (
-            DiscoveryDecision
-            .model_json_schema()
+        last_error = None
+
+        for attempt in range(1, 4):
+
+            try:
+                print(
+                    f"Planner attempt {attempt}/3..."
+                )
+
+                response = (
+                    self.client
+                    .chat
+                    .completions
+                    .create(
+                        model=self.model,
+                        messages=[
+                            {
+                                "role": "system",
+                                "content": system_prompt,
+                            },
+                            {
+                                "role": "user",
+                                "content": user_prompt,
+                            },
+                        ],
+                        response_format={
+                            "type": "json_object"
+                        },
+                        temperature=0,
+                        max_tokens=500,
+                    )
+                )
+
+                content = (
+                    response
+                    .choices[0]
+                    .message
+                    .content
+                )
+
+                if not content:
+                    raise ValueError(
+                        "Model returned an empty response."
+                    )
+
+                content = self._clean_json(
+                    content
+                )
+
+                parsed = json.loads(
+                    content
+                )
+
+                decision = (
+                    DiscoveryDecision
+                    .model_validate(
+                        parsed
+                    )
+                )
+
+                return decision
+
+            except Exception as exc:
+                last_error = exc
+
+                print(
+                    f"Planner attempt {attempt} "
+                    f"failed: {exc}"
+                )
+
+                if attempt < 3:
+                    print(
+                        "Waiting before retry..."
+                    )
+
+                    time.sleep(
+                        3 * attempt
+                    )
+
+        raise RuntimeError(
+            "Planner failed after "
+            f"3 attempts. Last error: "
+            f"{last_error}"
         )
 
-        response = (
-            self.client
-            .chat
-            .completions
-            .create(
-                model=self.model,
-                messages=[
-                    {
-                        "role": "system",
-                        "content": system_prompt,
-                    },
-                    {
-                        "role": "user",
-                        "content": user_prompt,
-                    },
-                ],
-                response_format={
-                    "type": "json_schema",
-                    "json_schema": {
-                        "name": "discovery_decision",
-                        "strict": True,
-                        "schema": schema,
-                    },
-                },
-                extra_body={
-                    "provider": {
-                        "require_parameters": True
-                    }
-                },
-                temperature=0,
-                max_tokens=500,
-            )
-        )
+    @staticmethod
+    def _clean_json(
+        content: str,
+    ) -> str:
 
-        content = (
-            response
-            .choices[0]
-            .message
-            .content
-        )
+        content = content.strip()
 
-        if not content:
+        if content.startswith("```json"):
+            content = content[
+                len("```json"):
+            ].strip()
+
+        elif content.startswith("```"):
+            content = content[
+                len("```"):
+            ].strip()
+
+        if content.endswith("```"):
+            content = content[:-3].strip()
+
+        first_brace = content.find("{")
+        last_brace = content.rfind("}")
+
+        if (
+            first_brace == -1
+            or last_brace == -1
+        ):
             raise ValueError(
-                "Model returned an empty response."
+                "No JSON object found "
+                "in model response."
             )
 
-        return (
-            DiscoveryDecision
-            .model_validate_json(
-                content
-            )
-        )
+        return content[
+            first_brace:
+            last_brace + 1
+        ]

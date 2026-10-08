@@ -2,7 +2,7 @@
   "status": "success",
   "goal": "Look up member 12345 and return their current savings balance.",
   "outputs": {
-    "extracted_value": "$4,821.77"
+    "savings_balance": "$4,821.77"
   },
   "history": [
     {
@@ -13,17 +13,18 @@
         "label": "Member ID"
       },
       "value": "[REDACTED]",
-      "reason": "Fill the member ID input field with the target member ID 12345"
+      "reason": "Enter member ID 12345 into the Member ID input field."
     },
     {
       "step": 2,
       "action": "click",
       "target": {
         "strategy": "role",
-        "text": "Search"
+        "role": "button",
+        "name": "Search"
       },
       "value": null,
-      "reason": "Click the Search button to look up member 12345"
+      "reason": "Click the Search button to look up member 12345."
     },
     {
       "step": 3,
@@ -33,8 +34,8 @@
         "text": "Savings Balance"
       },
       "value": null,
-      "reason": "Extract the savings balance value from the member details."
+      "reason": "Extract the savings balance value from the member details page."
     }
   ],
-  "llm_calls": 4
+  "llm_calls": 3
 }

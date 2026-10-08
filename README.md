@@ -1,34 +1,39 @@
 # Computer-Use Automation System
 
-A small end-to-end computer-use automation system that demonstrates how an LLM can discover a workflow in a live UI, record that workflow as a reusable capability, and replay it deterministically without an LLM in the decision loop.
+A focused end-to-end implementation of an LLM-driven computer-use automation system.
 
-The project uses a local credit-union member-service application as a safe stand-in for a legacy banking back-office system.
+The system demonstrates how an LLM can discover how to complete a task in a live UI, convert the successful run into a structured reusable capability, and replay that capability deterministically with no LLM in the decision loop.
+
+The demo uses a synthetic credit-union member-service application as a safe stand-in for a legacy banking back-office system.
 
 ## What It Demonstrates
 
-The system supports:
+The project includes:
 
-- Natural-language, LLM-driven UI discovery
-- Real browser interaction using Playwright
-- Structured and versioned capability artifacts
-- Deterministic replay with zero LLM calls
-- Typed inputs and outputs
-- Business-outcome classification
-- Hard-failure classification
-- Safety allowlists and risky-action controls
-- Sensitive-data redaction
-- Human-in-the-loop pause, takeover, and resume
-- Structured discovery logs and screenshot evidence
+- real LLM-driven UI discovery
+- Playwright browser automation
+- structured and versioned capability artifacts
+- deterministic replay with `llm_calls = 0`
+- typed inputs and outputs
+- business-outcome handling
+- hard-failure handling
+- configurable safety guardrails
+- sensitive-data redaction
+- human-in-the-loop pause / takeover / resume
+- structured discovery and replay evidence
+- screenshot evidence for failures and handoff
 
 The core lifecycle is:
 
 ```text
 Natural-language goal
         ↓
-LLM-driven discovery
+LLM observe → decide → act loop
         ↓
-Recorded capability artifact
+Successful discovery history
+        ↓
+Typed capability artifact
         ↓
 Deterministic replay
         ↓
-Typed result
+Structured result
