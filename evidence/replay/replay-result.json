@@ -1,0 +1,15 @@
+{
+  "status": "success",
+  "capability_name": "lookup_savings_balance",
+  "outputs": {
+    "savings_balance": "$4,821.77"
+  },
+  "business_outcome": null,
+  "error": null,
+  "completed_steps": [
+    "step_1",
+    "step_2",
+    "step_3"
+  ],
+  "llm_calls": 0
+}
