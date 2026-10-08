@@ -9,13 +9,13 @@
       "type": "string",
       "required": true,
       "sensitive": true,
-      "description": "Credit union member identifier"
+      "description": "Credit union member identifier."
     }
   },
   "outputs": {
     "savings_balance": {
       "type": "string",
-      "description": "Current savings account balance"
+      "description": "Current savings account balance."
     }
   },
   "steps": [
@@ -42,10 +42,10 @@
       "action": "click",
       "target": {
         "strategy": "role",
-        "role": "button",
-        "name": "Search",
+        "role": null,
+        "name": null,
         "label": null,
-        "text": null,
+        "text": "Search",
         "selector": null,
         "placeholder": null,
         "fallbacks": []
@@ -71,7 +71,7 @@
       "value": null,
       "output": "savings_balance",
       "timeout_ms": 5000,
-      "description": "Read the member savings balance."
+      "description": "Extract the member savings balance."
     }
   ],
   "checkpoint": {

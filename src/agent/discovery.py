@@ -1,6 +1,7 @@
 from typing import Any
 
 from src.agent.planner import LLMPlanner
+from src.observability.logger import RunLogger
 from src.safety.policy import (
     SafetyGuard,
     SafetyViolation,
@@ -27,16 +28,28 @@ class DiscoveryRunner:
         self.outputs: dict[str, Any] = {}
         self.llm_calls = 0
 
+        self.logger = RunLogger(
+            run_id="discovery-001",
+            mode="discovery",
+            output_path=(
+                "evidence/discovery/events.jsonl"
+            ),
+        )
+
     async def run(
         self,
         goal: str,
         target: str,
     ) -> dict[str, Any]:
 
-        # Make sure the starting URL is allowed.
+        self.logger.log(
+            "run_started",
+            goal=goal,
+            target=target,
+        )
+
         self.safety.validate_url(target)
 
-        # Open the target application.
         await self.surface.navigate(target)
 
         for step_number in range(
@@ -44,16 +57,25 @@ class DiscoveryRunner:
             self.max_steps + 1,
         ):
 
-            # Observe the current UI.
             observation = await self.surface.observe()
 
-            # Redact sensitive values before sending
-            # anything to the LLM.
             safe_observation = redact_data(
                 observation
             )
 
-            # Ask the real LLM for exactly one next action.
+            self.logger.log(
+                "observation_captured",
+                step=step_number,
+                title=observation.get("title"),
+                url=observation.get("url"),
+                control_count=len(
+                    observation.get(
+                        "controls",
+                        [],
+                    )
+                ),
+            )
+
             decision = self.planner.decide(
                 goal=goal,
                 observation=safe_observation,
@@ -61,6 +83,27 @@ class DiscoveryRunner:
             )
 
             self.llm_calls += 1
+
+            target_dict = None
+
+            if decision.action.target:
+                target_dict = (
+                    decision.action.target.model_dump(
+                        exclude_none=True
+                    )
+                )
+
+            self.logger.log(
+                "llm_decision",
+                step=step_number,
+                action=decision.action.action,
+                target=target_dict,
+                reason=decision.action.reason,
+                confidence=(
+                    decision.action.confidence
+                ),
+                llm_calls=self.llm_calls,
+            )
 
             print(
                 f"\n--- DISCOVERY STEP "
@@ -77,11 +120,20 @@ class DiscoveryRunner:
                 decision.action.reason
             )
 
-            # The model says the goal is complete.
             if (
                 decision.goal_satisfied
                 or decision.action.action == "finish"
             ):
+
+                self.logger.log(
+                    "run_completed",
+                    status="success",
+                    llm_calls=self.llm_calls,
+                    output_names=list(
+                        self.outputs.keys()
+                    ),
+                )
+
                 return {
                     "status": "success",
                     "goal": goal,
@@ -90,8 +142,14 @@ class DiscoveryRunner:
                     "llm_calls": self.llm_calls,
                 }
 
-            # The model cannot safely continue.
             if decision.action.action == "escalate":
+
+                self.logger.log(
+                    "escalation_requested",
+                    step=step_number,
+                    reason=decision.action.reason,
+                )
+
                 return {
                     "status": "escalation_required",
                     "goal": goal,
@@ -100,13 +158,19 @@ class DiscoveryRunner:
                     "llm_calls": self.llm_calls,
                 }
 
-            # Check that the requested action is permitted.
             try:
                 self.safety.validate_action(
                     decision.action.action
                 )
 
             except SafetyViolation as exc:
+
+                self.logger.log(
+                    "safety_blocked",
+                    step=step_number,
+                    reason=str(exc),
+                )
+
                 return {
                     "status": "safety_blocked",
                     "goal": goal,
@@ -115,23 +179,10 @@ class DiscoveryRunner:
                     "llm_calls": self.llm_calls,
                 }
 
-            # Execute the model's chosen action.
             await self._execute_action(
                 decision.action
             )
 
-            # Convert typed target model into a normal dict
-            # before storing it in history.
-            target_dict = None
-
-            if decision.action.target:
-                target_dict = (
-                    decision.action.target.model_dump(
-                        exclude_none=True
-                    )
-                )
-
-            # Never persist typed values raw in history.
             history_entry = {
                 "step": step_number,
                 "action": (
@@ -140,7 +191,8 @@ class DiscoveryRunner:
                 "target": target_dict,
                 "value": (
                     "[REDACTED]"
-                    if decision.action.action == "type"
+                    if decision.action.action
+                    == "type"
                     else decision.action.value
                 ),
                 "reason": (
@@ -151,6 +203,25 @@ class DiscoveryRunner:
             self.history.append(
                 history_entry
             )
+
+            self.logger.log(
+                "action_executed",
+                step=step_number,
+                action=decision.action.action,
+                target=target_dict,
+                value=(
+                    "[REDACTED]"
+                    if decision.action.action
+                    == "type"
+                    else None
+                ),
+            )
+
+        self.logger.log(
+            "run_completed",
+            status="max_steps_reached",
+            llm_calls=self.llm_calls,
+        )
 
         return {
             "status": "max_steps_reached",
@@ -230,6 +301,11 @@ class DiscoveryRunner:
                 output_name
             ] = value
 
+            self.logger.log(
+                "output_extracted",
+                output_name=output_name,
+            )
+
             print(
                 f"Extracted "
                 f"{output_name}: {value}"
@@ -251,8 +327,6 @@ class DiscoveryRunner:
                 "Extract action requires a target."
             )
 
-        # AgentTarget is a Pydantic model.
-        # Convert it into a regular dictionary.
         if hasattr(
             target,
             "model_dump"
@@ -299,13 +373,11 @@ class DiscoveryRunner:
                     "label and value."
                 )
 
-            value = (
+            return (
                 await cells.nth(
                     1
                 ).inner_text()
             ).strip()
-
-            return value
 
         raise ValueError(
             f"Unsupported extraction "
